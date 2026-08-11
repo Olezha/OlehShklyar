@@ -29,8 +29,8 @@ facebook_username: oleh.shklyar.1
 linkedin_username: olehshklyar
 orcid_id: 0009-0001-6524-6357
 
-# Build settings
 theme: minima
+permalink: /:short_year:month-:title
 plugins:
   - jekyll-feed
 
