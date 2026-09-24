@@ -11,4 +11,6 @@ security-critical services. I'm currently a PhD candidate researching load balan
 methods for cloud service infrastructure, which keeps me close to distributed systems
 and cloud-native architecture beyond day-to-day work.
 
-Outside of work, I'm a husband and a father of two little girls.
+Outside of work, I'm a husband and a father of two little girls. I enjoy mountaineering,
+and connecting with nature through fishing and other traditional wildlife & field pursuits.
+If you share an interest in any of these, feel free to reach out -- I'm always happy to connect!
