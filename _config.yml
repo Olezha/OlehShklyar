@@ -23,7 +23,7 @@ email: oleh.shklyar@gmail.com
 description: >- # this means to ignore newlines until "baseurl:"
   Kyiv, Ukraine
 baseurl: "" # the subpath of your site, e.g. /blog
-url: "" # the base hostname & protocol for your site, e.g. http://example.com
+url: "https://olehshklyar.com" # the base hostname & protocol for site
 github_username: Olezha
 facebook_username: oleh.shklyar.1
 linkedin_username: olehshklyar
