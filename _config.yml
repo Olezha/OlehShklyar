@@ -34,6 +34,10 @@ permalink: /:short_year:month-:title
 plugins:
   - jekyll-feed
 
+# Waline comments configuration (Vercel + Supabase)
+waline:
+  server_url: "https://oleh-shklyar-blog-comments.vercel.app"
+
 # Exclude from processing.
 # The following items will not be processed, by default.
 # Any item listed under the `exclude:` key here will be automatically added to

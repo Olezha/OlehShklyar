@@ -1,0 +1,23 @@
+{% if page.comments != false and site.waline.server_url and site.waline.server_url != "" %}
+<div class="post-comments" style="margin-top: 3rem;">
+  <hr style="margin-bottom: 2rem;" />
+  <h3 style="margin-bottom: 1.5rem;">Коментарі та обговорення</h3>
+  <div id="waline"></div>
+</div>
+
+<link rel="stylesheet" href="https://unpkg.com/@waline/client@v3/dist/waline.css" />
+<script type="module">
+  import { init } from 'https://unpkg.com/@waline/client@v3/dist/waline.js';
+
+  init({
+    el: '#waline',
+    serverURL: '{{ site.waline.server_url }}',
+    lang: 'uk',
+    search: false,
+    reaction: true,
+    pageview: true,
+    comment: true,
+    dark: 'auto',
+  });
+</script>
+{% endif %}
