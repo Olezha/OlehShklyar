@@ -10,14 +10,14 @@
         <ul class="contact-list">
           <li class="p-name">
             {%- if site.author -%}
-              {{ site.author | escape }}
+              <a href="{{ "/" | relative_url }}" style="color: inherit; text-decoration: none;">{{ site.author | escape }}</a>
             {%- else -%}
-              {{ site.title | escape }}
+              <a href="{{ "/" | relative_url }}" style="color: inherit; text-decoration: none;">{{ site.title | escape }}</a>
             {%- endif -%}
-            </li>
-            {%- if site.email -%}
-            <li><a class="u-email" href="mailto:{{ site.email }}">{{ site.email }}</a></li>
-            {%- endif -%}
+          </li>
+          {%- if site.email -%}
+          <li><a class="u-email" href="mailto:{{ site.email }}">{{ site.email }}</a></li>
+          {%- endif -%}
         </ul>
       </div>
 
