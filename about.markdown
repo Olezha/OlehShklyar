@@ -3,13 +3,11 @@ layout: page
 title: About
 permalink: /about/
 ---
-## Hello 👋 My Name is Oleh
+<style>.post-title { display: none; }</style>
 
-I'm a Senior Software Engineer based in Kyiv, Ukraine, with 10+ years of experience
-building backend systems in Java and Spring -- from enterprise integrations to high-load,
-security-critical services. I'm currently a PhD candidate researching load balancing
-methods for cloud service infrastructure, which keeps me close to distributed systems
-and cloud-native architecture beyond day-to-day work.
+Hello, I'm Oleh Shklyar, a Ukrainian software engineer based in Kyiv.
+I spend most of my time designing backend and distributed systems in Java.
+Currently, I am also a PhD candidate researching load balancing methods for cloud infrastructure.
 
 Outside of work, I'm a husband and a father of two little girls. I enjoy mountaineering,
 and connecting with nature through fishing and other traditional wildlife & field pursuits.
