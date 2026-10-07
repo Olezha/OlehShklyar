@@ -11,4 +11,7 @@
   {%- if page.math or site.math or page.layout == 'post' -%}
     {%- include mathjax.html -%}
   {%- endif -%}
+  {%- if page.mermaid -%}
+    {%- include mermaid.html -%}
+  {%- endif -%}
 </head>
