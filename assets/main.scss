@@ -6,10 +6,14 @@
 
 // Widen the footer social-icons column (ORCID id wraps at default 20%),
 // taking the extra space from the description column, not the contact column.
-.footer-col-2 {
-  width: calc(30% - (#{$spacing-unit} / 2));
-}
+// Desktop only: below $on-laptop minima's own responsive widths take over.
+@media screen and (min-width: $on-laptop + 1) {
+  .footer-col-2 {
+    width: calc(30% - (#{$spacing-unit} / 2));
+  }
 
-.footer-col-3 {
-  width: calc(35% - (#{$spacing-unit} / 2));
+  .footer-col-3 {
+    width: calc(35% - (#{$spacing-unit} / 2));
+    text-align: right;
+  }
 }
