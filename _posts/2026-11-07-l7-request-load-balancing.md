@@ -1,6 +1,7 @@
 ---
 layout: post
 title: "Балансування запитів на L7: RR, LC і P2C"
+description: "Round Robin, Least Connections, P2C, Join-Idle-Queue і consistent hashing від теорії масового обслуговування до вимірів у Kubernetes: застаріла інформація, кілька реплік балансувальника, вартість проксі."
 date: 2026-11-07 10:00:00 +0200
 math: true
 mermaid: true
