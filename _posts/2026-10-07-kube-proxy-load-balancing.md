@@ -2,7 +2,7 @@
 layout: post
 title: "Як kube-proxy балансує навантаження"
 date: 2026-10-07 23:30:00 +0300
-last_modified_at: 2026-11-07 09:45:00 +0200
+last_modified_at: 2026-11-07 10:00:00 +0200
 math: true
 mermaid: true
 tags: kubernetes kube-proxy networking linux netfilter iptables nftables ipvs queueing-theory hpa system-design load-balancing
@@ -210,7 +210,7 @@ IPVS забезпечує сталий час пошуку незалежно в
 
 Транспортні балансувальники навантаження (`kube-proxy`) приймають рішення про вибір пода лише в момент встановлення нового з'єднання -- зокрема, у момент першого TCP-пакета `SYN`. Запис у підсистемі ядра `conntrack` фіксує прив'язку сесії на основі 5-tuple (src/dst IP, src/dst port, протокол).
 
-Коли з'єднання довготривале -- HTTP/1.1 Keep-Alive (послідовні запити в одному з'єднанні) або HTTP/2 і gRPC (паралельні запити, мультиплексовані в одному з'єднанні) -- усі запити цього з'єднання йдуть на один под. Якщо клієнтів мало, а з'єднання живуть довго (типовий випадок для gRPC між сервісами), **усі запити клієнта потрапляють на один под**, тоді як решта реплік лишаються ненавантаженими. Нові поди, створені HPA, не отримують трафіку від уже відкритих з'єднань. Як розподіляти саме запити -- на клієнті, в Ingress або в service mesh -- розглянуто в окремій статті про балансування на рівні L7.
+Коли з'єднання довготривале -- HTTP/1.1 Keep-Alive (послідовні запити в одному з'єднанні) або HTTP/2 і gRPC (паралельні запити, мультиплексовані в одному з'єднанні) -- усі запити цього з'єднання йдуть на один под. Якщо клієнтів мало, а з'єднання живуть довго (типовий випадок для gRPC між сервісами), **усі запити клієнта потрапляють на один под**, тоді як решта реплік лишаються ненавантаженими. Нові поди, створені HPA, не отримують трафіку від уже відкритих з'єднань. Як розподіляти саме запити -- на клієнті, в Ingress або в service mesh -- розглянуто в статті [«Балансування запитів на L7»]({% post_url 2026-11-07-l7-request-load-balancing %}).
 
 ### Сила двох виборів (Power of Two Choices)
 
@@ -223,6 +223,8 @@ IPVS забезпечує сталий час пошуку незалежно в
 Цей результат довели Azar, Broder, Karlin та Upfal (1994). Mitzenmacher (2001) переніс ідею на динамічні системи з чергами (так звана supermarket model): якщо кожен запит обирає коротшу з двох випадкових черг, ймовірність довгої черги спадає подвійно експоненційно з її довжиною, а не експоненційно, як при випадковому виборі.
 
 Обидва результати -- **асимптотичні** ($n \to \infty$). На малій кількості бекендів (3–5 подів) вони дають лише якісний орієнтир: вибір із двох кандидатів має помітно вирівнювати черги порівняно з випадковим вибором і не потребує опитування всіх серверів. Кількісно на такому масштабі ефект перевіряється тільки вимірюванням.
+
+Динамічну версію задачі (supermarket model), Least Connections як вибір з усіх $n$ і поведінку цих алгоритмів за застарілої інформації докладно розглянуто в статті [«Балансування запитів на L7»]({% post_url 2026-11-07-l7-request-load-balancing %}).
 
 **Що це означає для kube-proxy.** Режим iptables -- це саме випадок $d = 1$, але «кулями» є **з'єднання**, а не запити. Поки з'єднання короткі, кожен запит -- нова куля, і закон великих чисел вирівнює навантаження. Коли з'єднання довгі (gRPC, HTTP/2, пули з'єднань з keep-alive), $m$ клієнтських з'єднань один раз розкладаються по $n$ подах і так лишаються. Тоді важливе відношення $m/n$, і модель дає три режими:
 * **$m/n < 1$ -- клієнтів менше, ніж подів.** Частка подів без жодного з'єднання $\left(1 - \frac{1}{n}\right)^m \approx e^{-m/n}$: при 5 клієнтах і 10 подах -- близько 60%. Масштабування сервісу в цьому режимі майже не допомагає: нові поди не отримують трафіку.
@@ -243,7 +245,7 @@ $$L = \lambda W$$
 
 ### Формула Кінгмана та поріг HPA
 
-Час очікування в черзі $G/G/1$ за формулою Кінгмана (1961):
+Час очікування в черзі $G/G/1$ за формулою Кінгмана:
 
 $$W_q \approx \left(\frac{c_a^2 + c_s^2}{2}\right) \cdot \left(\frac{\rho}{1 - \rho}\right) \cdot \frac{1}{\mu}$$
 
@@ -276,7 +278,7 @@ $$W_q \approx \left(\frac{c_a^2 + c_s^2}{2}\right) \cdot \left(\frac{\rho}{1 - \
 * **Генератор навантаження** ([`LoadGen`](https://github.com/Olezha/Load-balancer/blob/main/core/src/LoadGen.java){:target="_blank" rel="noopener noreferrer"}): пуассонівські надходження, нове TCP-з'єднання на кожен запит, затримка рахується від запланованого моменту запиту. Остання умова важлива: якщо генератор відстає, повільні відповіді не повинні випадати з вимірів.
 * **Калібрування.** Перед порівнянням балансувальників один под без балансувальника перевірено на відповідність моделі $M/M/4$: порівнянням можна довіряти, лише якщо стенд поводиться як модель. При $\rho = 0.7$ виміряні P50 / P95 / P99 -- 52 / 179 / 259 мс (модель: 52 / 187 / 276 мс), при $\rho = 0.9$ -- 102 / 397 / 534 мс (модель: 113 / 418 / 615 мс), розбіжності в межах довірчих інтервалів трьох прогонів. Перша спроба калібрування з k6 моделі не збіглася саме через рівномірний потік запитів (розділ про формулу Кінгмана), тож генератор було замінено.
 * **Повтори.** Якщо не вказано інше, кожна конфігурація -- 3–5 прогонів у випадковому порядку, прогрів 10 с, вимір 60 с; наведено середнє і 95% довірчий інтервал.
-* **Еталон для порівняння.** Щоб відокремити вплив випадкового вибору від решти стенда, той самий трафік пропускається через мінімалістичний L7-проксі ([`L7LoadBalancer`](https://github.com/Olezha/Load-balancer/blob/main/core/src/L7LoadBalancer.java){:target="_blank" rel="noopener noreferrer"}), що розподіляє кожен запит за одним з алгоритмів: Round Robin (RR), найменше запитів у роботі (Least Connections, LC) або вибір кращого з двох випадкових подів (Power of Two Choices, P2C). Проксі тут лише вимірювальний інструмент; балансування на рівні L7 -- тема окремої статті.
+* **Еталон для порівняння.** Щоб відокремити вплив випадкового вибору від решти стенда, той самий трафік пропускається через мінімалістичний L7-проксі ([`L7LoadBalancer`](https://github.com/Olezha/Load-balancer/blob/main/core/src/L7LoadBalancer.java){:target="_blank" rel="noopener noreferrer"}), що розподіляє кожен запит за одним з алгоритмів: Round Robin (RR), найменше запитів у роботі (Least Connections, LC) або вибір кращого з двох випадкових подів (Power of Two Choices, P2C). Проксі тут лише вимірювальний інструмент; його будову і порівняння алгоритмів описано в статті [«Балансування запитів на L7»]({% post_url 2026-11-07-l7-request-load-balancing %}).
 * **Межі.** Усе працює на одній машині, тож абсолютні затримки містять мережеві накладні витрати віртуальних інтерфейсів. Бекенди синтетичні: модель перевіряє вплив розподілу на черги, а не поведінку конкретного застосунку.
 
 Код, передбачення, обґрунтування параметрів і журнал методології -- у [`kube-proxy-lab`](https://github.com/Olezha/Load-balancer/tree/main/kube-proxy-lab){:target="_blank" rel="noopener noreferrer"}.
@@ -475,7 +477,7 @@ kube-proxy достатньо, якщо виконуються всі умови
 | Балансування на клієнті (gRPC, Spring Cloud LoadBalancer) | Запити | Round Robin, P2C | Логіка балансування в кожному клієнті, залежність від мови й бібліотеки | Внутрішні виклики між сервісами без окремого проксі |
 | HPA | Потужність, а не трафік | Кількість подів за метрикою | Час реакції від десятків секунд | Зміни навантаження довші за час реакції |
 
-Порівняння алгоритмів L7 -- в окремій статті про балансування на рівні L7.
+Порівняння алгоритмів L7, кількох реплік балансувальника і consistent hashing -- у статті [«Балансування запитів на L7»]({% post_url 2026-11-07-l7-request-load-balancing %}).
 
 ### Граничні умови режимів kube-proxy
 1. **iptables:** режим за замовчуванням, достатній для більшості кластерів. Сигнал до перегляду -- час синхронізації правил (`kubeproxy_sync_proxy_rules_duration_seconds`) і затримка програмування мережі (`kubeproxy_network_programming_duration_seconds`).
@@ -496,8 +498,7 @@ kube-proxy достатньо, якщо виконуються всі умови
 
 1. **Azar, Y., Broder, A. Z., Karlin, A. R., & Upfal, E. (1994).** Balanced Allocations. *Proceedings of the 26th ACM Symposium on Theory of Computing (STOC)*, 593–602; журнальна версія -- *SIAM Journal on Computing*, 29(1), 180–200 (1999).
 2. **Mitzenmacher, M. (2001).** The Power of Two Choices in Randomized Load Balancing. *IEEE Transactions on Parallel and Distributed Systems*, 12(10), 1094–1104.
-3. **Little, J. D. (1961).** A Proof for the Queuing Formula: $L = \lambda W$. *Operations Research*, 9(3), 383–387.
-4. **Kingman, J. F. C. (1961).** The single server queue in heavy traffic. *Mathematical Proceedings of the Cambridge Philosophical Society*, 57(4), 902–904.
-5. **Saltzer, J. H., Reed, D. P., & Clark, D. D. (1984).** End-to-End Arguments in System Design. *ACM Transactions on Computer Systems*, 2(4), 277–288.
-6. **Kubernetes SIG Network (2025).** KEP-5495: Deprecate ipvs mode in kube-proxy. [kubernetes.dev/resources/keps/5495](https://kubernetes.dev/resources/keps/5495){:target="_blank" rel="noopener noreferrer"}.
-7. **Kubernetes Blog (2025).** NFTables mode for kube-proxy. [kubernetes.io/blog/2025/02/28/nftables-kube-proxy](https://kubernetes.io/blog/2025/02/28/nftables-kube-proxy/){:target="_blank" rel="noopener noreferrer"}.
+3. **Little, J. D. C. (2011).** Little's Law as Viewed on Its 50th Anniversary. *Operations Research*, 59(3), 536–549.
+4. **Saltzer, J. H., Reed, D. P., & Clark, D. D. (1984).** End-to-End Arguments in System Design. *ACM Transactions on Computer Systems*, 2(4), 277–288.
+5. **Kubernetes SIG Network (2025).** KEP-5495: Deprecate ipvs mode in kube-proxy. [kubernetes.dev/resources/keps/5495](https://www.kubernetes.dev/resources/keps/5495/){:target="_blank" rel="noopener noreferrer"}.
+6. **Kubernetes Blog (2025).** NFTables mode for kube-proxy. [kubernetes.io/blog/2025/02/28/nftables-kube-proxy](https://kubernetes.io/blog/2025/02/28/nftables-kube-proxy/){:target="_blank" rel="noopener noreferrer"}.
